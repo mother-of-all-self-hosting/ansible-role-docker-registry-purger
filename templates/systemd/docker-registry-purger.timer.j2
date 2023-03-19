@@ -1,0 +1,9 @@
+[Unit]
+Description=Launches the {{ docker_registry_purger_identifier }}.service periodically
+
+[Timer]
+Unit={{ docker_registry_purger_identifier }}.service
+OnCalendar={{ docker_registry_purger_schedule }}
+
+[Install]
+WantedBy=timers.target

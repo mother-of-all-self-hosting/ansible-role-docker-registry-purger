@@ -1,0 +1,6 @@
+[Unit]
+Description=Performs container registry purging
+
+[Service]
+Type=oneshot
+ExecStart={{ docker_registry_purger_bin_path }}/purge

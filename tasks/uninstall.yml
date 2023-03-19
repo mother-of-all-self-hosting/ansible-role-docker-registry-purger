@@ -1,0 +1,31 @@
+---
+
+- name: Check existence of Docker Registry Purger systemd service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/{{ docker_registry_purger_identifier }}.service"
+  register: docker_registry_purger_service_stat
+
+- when: docker_registry_purger_service_stat.stat.exists | bool
+  block:
+    - name: Ensure Docker Registry Purger systemd services are stopped
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        daemon_reload: true
+      with_items:
+        - "{{ docker_registry_purger_identifier }}.service"
+        - "{{ docker_registry_purger_identifier }}.timer"
+
+    - name: Ensure Docker Registry Purger systemd services do not exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/{{ item }}"
+        state: absent
+      with_items:
+        - "{{ docker_registry_purger_identifier }}.service"
+        - "{{ docker_registry_purger_identifier }}.timer"
+
+    - name: Ensure Docker Registry Purger path doesn't exist
+      ansible.builtin.file:
+        path: "{{ docker_registry_purger_base_path }}"
+        state: absent

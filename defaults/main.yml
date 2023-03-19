@@ -1,0 +1,50 @@
+---
+
+docker_registry_purger_enabled: true
+
+docker_registry_purger_identifier: docker-registry-purger
+
+docker_registry_purger_version: 1.0.0
+
+docker_registry_purger_container_image: "{{ docker_registry_purger_container_image_registry_prefix }}devture/docker-registry-purger:{{ docker_registry_purger_container_image_tag }}"
+docker_registry_purger_container_image_tag: "{{ docker_registry_purger_version }}"
+docker_registry_purger_container_image_force_pull: "{{ docker_registry_purger_container_image.endswith(':latest') }}"
+docker_registry_purger_container_image_registry_prefix: docker.io/
+
+docker_registry_purger_container_network: "{{ docker_registry_purger_identifier }}"
+
+# A list of additional container networks that the container would be connected to.
+# The playbook does not create these networks, so make sure they already exist.
+docker_registry_purger_container_additional_networks: []
+
+docker_registry_purger_uid: ''
+docker_registry_purger_gid: ''
+
+docker_registry_purger_base_path: "/{{ docker_registry_purger_identifier }}"
+docker_registry_purger_bin_path: "{{ docker_registry_purger_base_path }}/bin"
+
+# A full URL to the container registry.
+# Controls the `REGISTRY_URL` environment variable
+docker_registry_purger_registry_url: ''
+
+# Controls the `NOF_TAGS_TO_KEEP` environment variable
+docker_registry_purger_nof_tags_to_keep: 3
+
+# Controls the `IMAGE_IGNORE_REGEX` environment variable
+docker_registry_purger_image_ignore_regex: ''
+
+# Controls the `DRY_RUN` environment variable
+docker_registry_purger_dry_run: false
+
+# docker_registry_purger_schedule contains a systemd OnCalendar definition which controls how often `registry-purger.timer` runs
+docker_registry_purger_schedule: 'Sunday *-*-* 06:30:00'
+
+docker_registry_purger_systemd_required_systemd_services_list: ['docker.service']
+
+# docker_registry_purger_container_additional_environment_variables contains a multiline string with additional environment variables to pass to the container.
+#
+# Example:
+# docker_registry_purger_container_additional_environment_variables: |
+#   VAR=1
+#   ANOTHER=value
+docker_registry_purger_container_additional_environment_variables: ''

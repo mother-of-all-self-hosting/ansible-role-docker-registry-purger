@@ -1,0 +1,14 @@
+#!/bin/sh
+
+docker_run_flags=''
+if [ -t 1 ]; then
+    # Got tty
+    docker_run_flags='-it'
+fi
+
+{{ devture_systemd_docker_base_host_command_docker }} run \
+$docker_run_flags \
+--rm \
+--network={{ docker_registry_purger_container_network }} \
+--env-file={{ docker_registry_purger_base_path }}/env \
+{{ docker_registry_purger_container_image }}
