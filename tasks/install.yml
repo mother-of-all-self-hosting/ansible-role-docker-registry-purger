@@ -14,7 +14,7 @@
     - "{{ docker_registry_purger_base_path }}"
     - "{{ docker_registry_purger_bin_path }}"
 
-- name: Ensure Registry Purger support files created
+- name: Ensure Registry Purger support files installed
   ansible.builtin.template:
     src: "{{ role_path }}/templates/{{ item }}.j2"
     dest: "{{ docker_registry_purger_base_path }}/{{ item }}"
@@ -24,7 +24,7 @@
   with_items:
     - env
 
-- name: Ensure Registry Purger bin files created
+- name: Ensure Registry Purger bin files installed
   ansible.builtin.template:
     src: "{{ role_path }}/templates/bin/{{ item }}.j2"
     dest: "{{ docker_registry_purger_bin_path }}/{{ item }}"
@@ -48,7 +48,7 @@
     driver: bridge
     driver_options: "{{ devture_systemd_docker_base_container_networks_driver_options }}"
 
-- name: Ensure Registry Purger systemd service installed
+- name: Ensure Registry Purger systemd services are present
   ansible.builtin.template:
     src: "{{ role_path }}/templates/systemd/docker-registry-purger.{{ item }}.j2"
     dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ docker_registry_purger_identifier }}.{{ item }}"
