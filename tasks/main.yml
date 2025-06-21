@@ -1,24 +1,27 @@
 # SPDX-FileCopyrightText: 2023 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2025 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-
-- tags:
+- name: Perform Docker Registry Purger installation tasks
+  when: docker_registry_purger_enabled | bool
+  tags:
     - setup-all
     - setup-docker-registry-purger
     - install-all
     - install-docker-registry-purger
   block:
-    - when: docker_registry_purger_enabled | bool
+    - name: Validate Docker Registry Purger configuration
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
-
-    - when: docker_registry_purger_enabled | bool
+    - name: Install Docker Registry Purger
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
 
-- tags:
+- name: Perform Docker Registry Purger uninstallation tasks
+  when: not docker_registry_purger_enabled | bool
+  tags:
     - setup-all
     - setup-docker-registry-purger
   block:
-    - when: not docker_registry_purger_enabled | bool
+    - name: Uninstall Docker Registry Purger
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
