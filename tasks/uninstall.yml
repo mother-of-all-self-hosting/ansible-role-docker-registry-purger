@@ -29,7 +29,7 @@
         - "{{ docker_registry_purger_identifier }}.service"
         - "{{ docker_registry_purger_identifier }}.timer"
 
-    - name: Ensure Docker Registry Purger path doesn't exist
+    - name: Ensure Docker Registry Purger path does not exist
       ansible.builtin.file:
         path: "{{ docker_registry_purger_base_path }}"
         state: absent
