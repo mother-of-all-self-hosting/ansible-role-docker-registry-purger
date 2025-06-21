@@ -42,7 +42,7 @@
     force: "{{ omit if ansible_version.major > 2 or ansible_version.minor >= 8 else docker_registry_purger_container_image_force_pull }}"
 
 - name: Ensure Registry Purger container network is created
-  community.general.docker_network:
+  community.docker.docker_network:
     enable_ipv6: "{{ devture_systemd_docker_base_ipv6_enabled }}"
     name: "{{ docker_registry_purger_container_network }}"
     driver: bridge
