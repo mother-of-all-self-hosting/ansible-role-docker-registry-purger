@@ -24,7 +24,9 @@ docker_registry_purger_container_network: "{{ docker_registry_purger_identifier 
 
 # A list of additional container networks that the container would be connected to.
 # The playbook does not create these networks, so make sure they already exist.
-docker_registry_purger_container_additional_networks: []
+docker_registry_purger_container_additional_networks: "{{ docker_registry_purger_container_additional_networks_auto + docker_registry_purger_container_additional_networks_custom }}"
+docker_registry_purger_container_additional_networks_auto: []
+docker_registry_purger_container_additional_networks_custom: []
 
 # A full URL to the container registry.
 # Controls the `REGISTRY_URL` environment variable
