@@ -1,4 +1,8 @@
-# SPDX-FileCopyrightText: 2023 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2023 - 2024 Nikita Chernyi
+# SPDX-FileCopyrightText: 2023 - 2025 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2024 Sergio Durigan Junior
+# SPDX-FileCopyrightText: 2025 MASH project contributors
+# SPDX-FileCopyrightText: 2025 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -17,8 +21,10 @@ docker_registry_purger_gid: ''
 
 docker_registry_purger_container_image: "{{ docker_registry_purger_container_image_registry_prefix }}devture/docker-registry-purger:{{ docker_registry_purger_container_image_tag }}"
 docker_registry_purger_container_image_tag: "{{ docker_registry_purger_version }}"
+docker_registry_purger_container_image_registry_prefix: "{{ docker_registry_purger_container_image_registry_prefix_upstream }}"
+docker_registry_purger_container_image_registry_prefix_upstream: "{{ docker_registry_purger_container_image_registry_prefix_upstream_default }}"
+docker_registry_purger_container_image_registry_prefix_upstream_default: docker.io/
 docker_registry_purger_container_image_force_pull: "{{ docker_registry_purger_container_image.endswith(':latest') }}"
-docker_registry_purger_container_image_registry_prefix: docker.io/
 
 docker_registry_purger_container_network: "{{ docker_registry_purger_identifier }}"
 
