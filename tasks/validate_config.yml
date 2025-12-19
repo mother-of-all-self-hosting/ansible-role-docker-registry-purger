@@ -11,4 +11,5 @@
   with_items:
     - docker_registry_purger_uid
     - docker_registry_purger_gid
+    - docker_registry_purger_container_network
     - docker_registry_purger_registry_url
