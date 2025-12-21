@@ -17,4 +17,7 @@ $docker_run_flags \
 --rm \
 --network={{ docker_registry_purger_container_network }} \
 --env-file={{ docker_registry_purger_base_path }}/env \
+{% for arg in docker_registry_purger_container_extra_arguments %}
+{{ arg }} \
+{% endfor %}
 {{ docker_registry_purger_container_image }}

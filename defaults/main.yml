@@ -35,7 +35,7 @@ docker_registry_purger_container_additional_networks: "{{ docker_registry_purger
 docker_registry_purger_container_additional_networks_auto: []
 docker_registry_purger_container_additional_networks_custom: []
 
-# A list of extra arguments to pass to the container (`docker create` command)
+# A list of extra arguments to pass to the container (`docker run` command)
 docker_registry_purger_container_extra_arguments: "{{ docker_registry_purger_container_extra_arguments_auto + docker_registry_purger_container_extra_arguments_custom }}"
 docker_registry_purger_container_extra_arguments_auto: []
 docker_registry_purger_container_extra_arguments_custom: []
