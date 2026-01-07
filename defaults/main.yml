@@ -56,6 +56,9 @@ docker_registry_purger_dry_run: false
 # docker_registry_purger_schedule contains a systemd OnCalendar definition which controls how often `registry-purger.timer` runs
 docker_registry_purger_schedule: 'Sunday *-*-* 06:30:00'
 
+# Specify the timezone
+docker_registry_purger_environment_variables_tz: UTC
+
 # docker_registry_purger_container_additional_environment_variables contains a multiline string with additional environment variables to pass to the container.
 #
 # Example:
