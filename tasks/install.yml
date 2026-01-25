@@ -56,7 +56,7 @@
   ansible.builtin.template:
     src: "{{ role_path }}/templates/systemd/docker-registry-purger.{{ item }}.j2"
     dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ docker_registry_purger_identifier }}.{{ item }}"
-    mode: "0640"
+    mode: "0644"
   with_items:
     - service
     - timer
