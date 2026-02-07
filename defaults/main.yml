@@ -30,7 +30,8 @@ docker_registry_purger_container_image_force_pull: "{{ docker_registry_purger_co
 docker_registry_purger_container_network: "{{ docker_registry_purger_identifier }}"
 
 # A list of additional container networks that the container would be connected to.
-# The playbook does not create these networks, so make sure they already exist.
+# The role does not create these networks, so make sure they already exist.
+# Use this to expose this container to another reverse proxy, which runs in a different container network.
 docker_registry_purger_container_additional_networks: "{{ docker_registry_purger_container_additional_networks_auto + docker_registry_purger_container_additional_networks_custom }}"
 docker_registry_purger_container_additional_networks_auto: []
 docker_registry_purger_container_additional_networks_custom: []
