@@ -23,6 +23,7 @@
     group: "{{ docker_registry_purger_gid }}"
   with_items:
     - env
+  register: docker_registry_purger_support_files_result
 
 - name: Ensure Docker Registry Purger bin files installed
   ansible.builtin.template:
@@ -33,6 +34,7 @@
     mode: "0750"
   with_items:
     - purge
+  register: docker_registry_purger_bin_files_result
 
 - name: Ensure Docker Registry Purger container image is pulled via community.docker.docker_image
   when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module'
@@ -85,3 +87,14 @@
   with_items:
     - service
     - timer
+  register: docker_registry_purger_systemd_service_result
+
+- name: Determine whether Docker Registry Purger needs a restart
+  ansible.builtin.set_fact:
+    docker_registry_purger_restart_necessary: >-
+      {{
+        docker_registry_purger_support_files_result.changed | default(false)
+        or docker_registry_purger_bin_files_result.changed | default(false)
+        or docker_registry_purger_systemd_service_result.changed | default(false)
+        or docker_registry_purger_container_image_pull_result.changed | default(false)
+      }}
