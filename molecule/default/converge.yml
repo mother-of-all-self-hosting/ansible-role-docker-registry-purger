@@ -1,0 +1,148 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+# Everything that needs the supporting roles' variables in scope lives in this
+# one play, because `public: true` exposes them to the rest of the play only.
+- name: Install and exercise Docker Registry Purger for Molecule tests
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include supporting roles for Docker Registry Purger Molecule tests
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
+        public: true
+      loop:
+        - com.devture.ansible.role.playbook_help
+        - com.devture.ansible.role.systemd_docker_base
+      loop_control:
+        loop_var: role_name
+
+    # The first pass installs the role with `DRY_RUN` on. Not public, so that
+    # the override below stays scoped to this include and the second pass gets
+    # the role's own default (off) back.
+    - name: Include the Docker Registry Purger role in dry-run mode
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars:
+        docker_registry_purger_dry_run: true
+
+    # -----------------------------------------------------------------
+    # A registry with something in it worth purging
+    # -----------------------------------------------------------------
+
+    # Started via the Docker CLI rather than community.docker.docker_container,
+    # because the ansible-lint environment used by pre-commit does not have the
+    # community.docker collection and would fail the playbook syntax check.
+    - name: Ensure the Molecule registry container image is pulled
+      ansible.builtin.command:
+        argv:
+          - docker
+          - pull
+          - "{{ docker_registry_purger_molecule_registry_image }}"
+      changed_when: true
+
+    - name: Ensure the Molecule registry container is running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - -d
+          - --name
+          - "{{ docker_registry_purger_molecule_registry_identifier }}"
+          # The role created this network, and the purger container joins it
+          # too, which is how the two find each other by name.
+          - --network
+          - "{{ docker_registry_purger_container_network }}"
+          - -p
+          - "127.0.0.1:{{ docker_registry_purger_molecule_registry_bind_port }}:5000"
+          # Manifest deletion - the only thing the purger ever does - is
+          # refused by a registry that was not started with it enabled.
+          - -e
+          - REGISTRY_STORAGE_DELETE_ENABLED=true
+          - "{{ docker_registry_purger_molecule_registry_image }}"
+      changed_when: true
+
+    - name: Wait for the Molecule registry to answer (up to 60s)
+      ansible.builtin.uri:
+        url: "{{ docker_registry_purger_molecule_registry_url }}/v2/"
+        status_code: [200, 401]
+      register: docker_registry_purger_molecule_registry_ping
+      until: docker_registry_purger_molecule_registry_ping is not failed
+      retries: 12
+      delay: 5
+
+    - name: Ensure the Molecule registry seeding script is present
+      ansible.builtin.copy:
+        src: seed-registry.py
+        dest: /var/tmp/seed-registry.py
+        mode: "0755"
+
+    - name: Ensure the Molecule registry holds image tags
+      ansible.builtin.command:
+        argv: >-
+          {{
+            ['python3', '/var/tmp/seed-registry.py', docker_registry_purger_molecule_registry_url, item]
+            + docker_registry_purger_molecule_seeded_tags
+          }}
+      loop:
+        - "{{ docker_registry_purger_molecule_purged_repository }}"
+        - "{{ docker_registry_purger_molecule_ignored_repository }}"
+      changed_when: true
+
+    # -----------------------------------------------------------------
+    # The dry run, which must leave the registry exactly as it was
+    # -----------------------------------------------------------------
+
+    - name: Ensure systemd daemon is reloaded
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    # A `Type=oneshot` unit, so this returns once the purger has finished, and
+    # fails the play if it did not exit successfully. This is also where a
+    # purge script that the kernel refuses to execute (ENOEXEC) surfaces, as
+    # 203/EXEC.
+    - name: Ensure the Docker Registry Purger service performed a dry run
+      ansible.builtin.systemd_service:
+        name: docker-registry-purger.service
+        state: started
+
+    - name: Determine what the Molecule registry holds after the dry run
+      ansible.builtin.uri:
+        url: "{{ docker_registry_purger_molecule_registry_url }}/v2/{{ item }}/tags/list"
+        return_content: true
+      register: docker_registry_purger_molecule_dry_run_tags
+      loop:
+        - "{{ docker_registry_purger_molecule_purged_repository }}"
+        - "{{ docker_registry_purger_molecule_ignored_repository }}"
+
+    - name: Record what the Molecule registry holds after the dry run
+      ansible.builtin.copy:
+        dest: "{{ docker_registry_purger_molecule_dry_run_snapshot_path }}"
+        content: "{{ docker_registry_purger_molecule_dry_run_tags.results | map(attribute='json') | list | to_nice_json }}"
+        mode: "0644"
+
+    # -----------------------------------------------------------------
+    # Reinstalled with `DRY_RUN` off, ready for the timer to do the work
+    # -----------------------------------------------------------------
+
+    - name: Include the Docker Registry Purger role with dry-run mode off
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+
+# The timer is the only thing that triggers the real purge: nothing here starts
+# the service, so a purged registry proves the whole timer -> service -> purge
+# script -> container chain, which is what a deployment actually relies on.
+- name: Ensure the Docker Registry Purger timer is started
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Ensure the Docker Registry Purger timer is started
+      ansible.builtin.systemd_service:
+        name: docker-registry-purger.timer
+        state: started
+        enabled: true
+        daemon_reload: true

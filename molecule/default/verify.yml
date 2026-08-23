@@ -1,0 +1,259 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Verify Docker Registry Purger
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    # Role defaults are not in scope here, but the version that Renovate bumps
+    # lives in them and is what the purge script is checked against below.
+    - name: Load the Docker Registry Purger role defaults
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        name: docker_registry_purger_defaults
+
+    # ---------------------------------------------------------------------
+    # The purge script is something the kernel will actually execute
+    # ---------------------------------------------------------------------
+
+    - name: Stat the Docker Registry Purger purge script
+      ansible.builtin.stat:
+        path: "{{ docker_registry_purger_bin_path }}/purge"
+      register: docker_registry_purger_script_stat
+
+    - name: Read the Docker Registry Purger purge script
+      ansible.builtin.slurp:
+        src: "{{ docker_registry_purger_bin_path }}/purge"
+      register: docker_registry_purger_script
+
+    - name: Make sense of the Docker Registry Purger purge script
+      ansible.builtin.set_fact:
+        docker_registry_purger_script_lines: "{{ (docker_registry_purger_script.content | b64decode).splitlines() }}"
+
+    # An executable whose first line is not a shebang is rejected by the kernel
+    # with ENOEXEC. Interactive shells paper over that by falling back to
+    # /bin/sh, but systemd - the only thing that ever runs this script - does
+    # not, and reports 203/EXEC instead.
+    - name: Assert the Docker Registry Purger purge script is executable and wired as configured
+      ansible.builtin.assert:
+        that:
+          - docker_registry_purger_script_stat.stat.exists
+          - docker_registry_purger_script_stat.stat.mode == '0750'
+          - docker_registry_purger_script_lines[0] == '#!/bin/sh'
+          - docker_registry_purger_script_lines | select('search', '--env-file=' ~ docker_registry_purger_base_path ~ '/env') | list | length > 0
+          - docker_registry_purger_script_lines | select('search', '--network=' ~ docker_registry_purger_container_network) | list | length > 0
+          - >-
+            docker_registry_purger_script_lines
+            | select('search', 'devture/docker-registry-purger:' ~ docker_registry_purger_defaults.docker_registry_purger_version)
+            | list | length > 0
+        fail_msg: "The purge script is not what it should be: {{ docker_registry_purger_script_lines }}"
+        success_msg: >-
+          The purge script starts with a shebang and runs
+          devture/docker-registry-purger:{{ docker_registry_purger_defaults.docker_registry_purger_version }}
+          on the {{ docker_registry_purger_container_network }} network
+
+    # ---------------------------------------------------------------------
+    # The role's knobs are what the purger is running with
+    # ---------------------------------------------------------------------
+
+    - name: Read the Docker Registry Purger environment file
+      ansible.builtin.slurp:
+        src: "{{ docker_registry_purger_base_path }}/env"
+      register: docker_registry_purger_env_file
+
+    - name: Make sense of the Docker Registry Purger environment file
+      ansible.builtin.set_fact:
+        docker_registry_purger_env_lines: "{{ (docker_registry_purger_env_file.content | b64decode).splitlines() }}"
+
+    - name: Assert the configured settings reached the purger
+      ansible.builtin.assert:
+        that:
+          - "'REGISTRY_URL=' ~ docker_registry_purger_registry_url in docker_registry_purger_env_lines"
+          - "'NOF_TAGS_TO_KEEP=' ~ docker_registry_purger_nof_tags_to_keep in docker_registry_purger_env_lines"
+          - "'IMAGE_IGNORE_REGEX=' ~ docker_registry_purger_image_ignore_regex in docker_registry_purger_env_lines"
+          - "'TZ=' ~ docker_registry_purger_defaults.docker_registry_purger_environment_variables_tz in docker_registry_purger_env_lines"
+          # The second installation pass turned dry-run mode back off; had it
+          # not, the purge below could not have deleted anything.
+          - "'DRY_RUN=false' in docker_registry_purger_env_lines"
+        fail_msg: "The configured settings did not reach the purger: {{ docker_registry_purger_env_lines }}"
+        success_msg: "The configured settings reached the purger"
+
+    # ---------------------------------------------------------------------
+    # The systemd service and timer are wired to each other and to the script
+    # ---------------------------------------------------------------------
+
+    - name: Determine the Docker Registry Purger systemd unit paths
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - --property=FragmentPath
+          - --value
+          - "docker-registry-purger.{{ item }}"
+      register: docker_registry_purger_unit_paths
+      changed_when: false
+      loop:
+        - service
+        - timer
+
+    - name: Read the Docker Registry Purger systemd units
+      ansible.builtin.slurp:
+        src: "{{ item.stdout | trim }}"
+      register: docker_registry_purger_units
+      loop: "{{ docker_registry_purger_unit_paths.results }}"
+      loop_control:
+        label: "{{ item.stdout | trim }}"
+
+    - name: Make sense of the Docker Registry Purger systemd units
+      ansible.builtin.set_fact:
+        docker_registry_purger_service_lines: "{{ (docker_registry_purger_units.results[0].content | b64decode).splitlines() }}"
+        docker_registry_purger_timer_lines: "{{ (docker_registry_purger_units.results[1].content | b64decode).splitlines() }}"
+
+    - name: Assert the Docker Registry Purger systemd units are wired as configured
+      ansible.builtin.assert:
+        that:
+          # A one-shot, so that a run is something that completes rather than
+          # something that stays up.
+          - "'Type=oneshot' in docker_registry_purger_service_lines"
+          - "'ExecStart=' ~ docker_registry_purger_bin_path ~ '/purge' in docker_registry_purger_service_lines"
+          - "'Unit=docker-registry-purger.service' in docker_registry_purger_timer_lines"
+          - "'OnCalendar=' ~ docker_registry_purger_schedule in docker_registry_purger_timer_lines"
+        fail_msg: >-
+          The systemd units are not wired as configured:
+          {{ docker_registry_purger_service_lines }} / {{ docker_registry_purger_timer_lines }}
+        success_msg: >-
+          docker-registry-purger.timer runs docker-registry-purger.service on
+          {{ docker_registry_purger_schedule }}, which runs the purge script
+
+    - name: Read the Docker Registry Purger timer state
+      ansible.builtin.systemd:
+        name: docker-registry-purger.timer
+      register: docker_registry_purger_timer
+
+    - name: Assert the Docker Registry Purger timer is active
+      ansible.builtin.assert:
+        that: docker_registry_purger_timer.status.ActiveState == 'active'
+        fail_msg: "docker-registry-purger.timer is not active ({{ docker_registry_purger_timer.status.ActiveState }})"
+        success_msg: "docker-registry-purger.timer is active"
+
+    # ---------------------------------------------------------------------
+    # The dry run changed nothing
+    # ---------------------------------------------------------------------
+
+    - name: Read what the Molecule registry held after the dry run
+      ansible.builtin.slurp:
+        src: "{{ docker_registry_purger_molecule_dry_run_snapshot_path }}"
+      register: docker_registry_purger_dry_run_snapshot
+
+    - name: Make sense of what the Molecule registry held after the dry run
+      ansible.builtin.set_fact:
+        docker_registry_purger_dry_run_repositories: >-
+          {{ docker_registry_purger_dry_run_snapshot.content | b64decode | from_json }}
+
+    - name: Assert the dry run deleted nothing
+      ansible.builtin.assert:
+        that:
+          - docker_registry_purger_dry_run_repositories[0].tags | sort == docker_registry_purger_molecule_seeded_tags | sort
+          - docker_registry_purger_dry_run_repositories[1].tags | sort == docker_registry_purger_molecule_seeded_tags | sort
+        fail_msg: "The dry run did not leave the registry alone: {{ docker_registry_purger_dry_run_repositories }}"
+        success_msg: "The dry run left every seeded tag in place"
+
+    # ---------------------------------------------------------------------
+    # The timer-driven run purged exactly what it was configured to purge
+    # ---------------------------------------------------------------------
+
+    # Nothing started the service after the dry run, so whatever happens here
+    # was triggered by the timer.
+    - name: Wait for the timer-driven purge to thin out the registry (up to 300s)
+      ansible.builtin.uri:
+        url: >-
+          {{ docker_registry_purger_molecule_registry_url }}/v2/{{
+          docker_registry_purger_molecule_purged_repository }}/tags/list
+        return_content: true
+      register: docker_registry_purger_purged_tags
+      until: >-
+        (docker_registry_purger_purged_tags.json.tags | default([]) | sort)
+        == (docker_registry_purger_molecule_expected_kept_tags | sort)
+      retries: 60
+      delay: 5
+
+    - name: Read the tags of the repository the purger was told to ignore
+      ansible.builtin.uri:
+        url: >-
+          {{ docker_registry_purger_molecule_registry_url }}/v2/{{
+          docker_registry_purger_molecule_ignored_repository }}/tags/list
+        return_content: true
+      register: docker_registry_purger_ignored_tags
+
+    - name: Assert the purger kept its hands off the ignored repository
+      ansible.builtin.assert:
+        that: >-
+          (docker_registry_purger_ignored_tags.json.tags | sort)
+          == (docker_registry_purger_molecule_seeded_tags | sort)
+        fail_msg: >-
+          {{ docker_registry_purger_molecule_ignored_repository }} lost tags it
+          should have kept: {{ docker_registry_purger_ignored_tags.json.tags }}
+        success_msg: >-
+          {{ docker_registry_purger_molecule_ignored_repository }} still holds
+          all {{ docker_registry_purger_molecule_seeded_tags | length }} of its tags
+
+    - name: Read the Docker Registry Purger service state
+      ansible.builtin.systemd:
+        name: docker-registry-purger.service
+      register: docker_registry_purger_service
+
+    - name: Assert the Docker Registry Purger service run succeeded
+      ansible.builtin.assert:
+        that:
+          - docker_registry_purger_service.status.Result == 'success'
+          - docker_registry_purger_service.status.ExecMainStatus == '0'
+        fail_msg: >-
+          docker-registry-purger.service did not succeed
+          (Result={{ docker_registry_purger_service.status.Result }},
+          ExecMainStatus={{ docker_registry_purger_service.status.ExecMainStatus }})
+        success_msg: "docker-registry-purger.service exited successfully"
+
+    - name: Retrieve the Docker Registry Purger service log
+      ansible.builtin.command:
+        argv:
+          - journalctl
+          - --no-pager
+          - --output=cat
+          - --unit=docker-registry-purger.service
+      register: docker_registry_purger_log
+      changed_when: false
+
+    - name: Show Docker Registry Purger service log for debugging
+      when: docker_registry_purger_debug_service_enabled | bool
+      ansible.builtin.debug:
+        var: docker_registry_purger_log.stdout_lines
+
+    # The purger's own account of what it did, which has to agree with what the
+    # registry now holds.
+    - name: Assert the Docker Registry Purger log reports both runs
+      ansible.builtin.assert:
+        that:
+          - "'Working in dry-run mode..' in docker_registry_purger_log.stdout"
+          - >-
+            'Skip ' ~ docker_registry_purger_molecule_ignored_repository ~
+            ' because it matches the ignore regex' in docker_registry_purger_log.stdout
+          - "'Image cleanup completed' in docker_registry_purger_log.stdout"
+          - >-
+            '"' ~ docker_registry_purger_molecule_purged_repository ~ '": ' ~
+            (docker_registry_purger_molecule_seeded_tags | length - docker_registry_purger_molecule_expected_kept_tags | length)
+            in docker_registry_purger_log.stdout
+        fail_msg: "The service log does not report both runs: {{ docker_registry_purger_log.stdout_lines }}"
+        success_msg: "The service log reports a dry run and a purge"
+
+    - name: Show Docker Registry Purger verification summary
+      ansible.builtin.debug:
+        msg:
+          - "Purge script: {{ docker_registry_purger_script_lines[0] }} ({{ docker_registry_purger_script_stat.stat.mode }})"
+          - "Timer: {{ docker_registry_purger_timer.status.ActiveState }}, on {{ docker_registry_purger_schedule }}"
+          - "Last service run: Result={{ docker_registry_purger_service.status.Result }}, status={{ docker_registry_purger_service.status.ExecMainStatus }}"
+          - "Seeded tags: {{ docker_registry_purger_molecule_seeded_tags }}"
+          - "{{ docker_registry_purger_molecule_purged_repository }} now holds: {{ docker_registry_purger_purged_tags.json.tags | sort }}"
+          - "{{ docker_registry_purger_molecule_ignored_repository }} now holds: {{ docker_registry_purger_ignored_tags.json.tags | sort }}"

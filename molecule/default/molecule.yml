@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+    force: true
+driver:
+  name: docker
+platforms:
+  - name: docker-registry-purger-${MOLECULE_DISTRO:-ubuntu2604}-default
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2604}-ansible:latest"
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      callback_result_format: yaml
+  inventory:
+    group_vars:
+      all:
+        # Helper variables
+        docker_registry_purger_debug_service_enabled: false
+
+        # The registry that this scenario stands up for the purger to work on.
+        # It joins the role's own container network, so the purger reaches it
+        # by container name, while Ansible reaches it on 127.0.0.1 through the
+        # published port below.
+        docker_registry_purger_molecule_registry_identifier: molecule-docker-registry
+        docker_registry_purger_molecule_registry_image: docker.io/library/registry:3.0.0
+        docker_registry_purger_molecule_registry_bind_port: 5000
+        docker_registry_purger_molecule_registry_url: "http://127.0.0.1:{{ docker_registry_purger_molecule_registry_bind_port }}"
+
+        # Where converge.yml records what the registry held right after the
+        # dry run, for verify.yml to assert against later.
+        docker_registry_purger_molecule_dry_run_snapshot_path: /var/tmp/docker-registry-purger-molecule-dry-run.json
+
+        # The repository whose tags are expected to be thinned out ...
+        docker_registry_purger_molecule_purged_repository: molecule/purged
+        # ... and the one that `IMAGE_IGNORE_REGEX` must keep the purger away
+        # from, so that a purger which simply deleted everything it found would
+        # be caught.
+        docker_registry_purger_molecule_ignored_repository: molecule/ignored
+
+        # Seeded into both repositories. The registry lists tags
+        # lexicographically, the purger always keeps `latest` and then keeps
+        # the last `docker_registry_purger_nof_tags_to_keep` of what remains,
+        # so v0001 - v0003 are the ones that have to go and `latest`, v0004 and
+        # v0005 are the ones that have to stay.
+        docker_registry_purger_molecule_seeded_tags:
+          - latest
+          - v0001
+          - v0002
+          - v0003
+          - v0004
+          - v0005
+        docker_registry_purger_molecule_expected_kept_tags:
+          - latest
+          - v0004
+          - v0005
+
+        # Variables for Docker Registry Purger
+        docker_registry_purger_uid: 1000
+        docker_registry_purger_gid: 1000
+        docker_registry_purger_registry_url: "http://{{ docker_registry_purger_molecule_registry_identifier }}:5000"
+
+        # Deliberately different from the role's own defaults (keep 3 tags, no
+        # ignore regex), so that verify.yml can tell that these knobs are what
+        # actually reached the container rather than something that happened to
+        # agree with them.
+        #
+        # The end-of-string anchor is doubled below, because Molecule
+        # interpolates environment variables into this file (comments
+        # included) and a lone dollar sign is read as a placeholder.
+        docker_registry_purger_nof_tags_to_keep: 2
+        docker_registry_purger_image_ignore_regex: "^{{ docker_registry_purger_molecule_ignored_repository }}$$"
+
+        # The role installs a timer but never starts it (mash-playbook leaves
+        # that to com.devture.ansible.role.systemd_service_manager), so this
+        # scenario starts the timer itself and lets it be the only thing that
+        # ever triggers the real purge. A schedule this frequent is nothing a
+        # real deployment would use, but it is what makes the timer -> service
+        # -> purge chain observable within a test run.
+        docker_registry_purger_schedule: "*-*-* *:*:00/15"
+
+        # Pinned to literal values, because verify.yml runs as a separate play,
+        # where the role's defaults are out of scope, and these are derived
+        # from other variables rather than being literals themselves.
+        docker_registry_purger_base_path: /docker-registry-purger
+        docker_registry_purger_bin_path: /docker-registry-purger/bin
+        docker_registry_purger_container_network: docker-registry-purger
+  env:
+    # Workaround for https://github.com/ansible/molecule/issues/4391
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
+scenario:
+  # See: https://docs.ansible.com/projects/molecule/configuration/?h=test_sequence#scenario
+  #
+  # Idempotence is left out: converge seeds a registry, starts units and lets a
+  # timer fire, none of which is a no-op on a second run.
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - side_effect
+    - verify
+    - cleanup
+    - destroy
+verifier:
+  name: ansible
