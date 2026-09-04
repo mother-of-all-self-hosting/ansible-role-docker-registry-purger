@@ -250,12 +250,12 @@
         fail_msg: "The service log does not report both runs: {{ docker_registry_purger_log.stdout_lines }}"
         success_msg: "The service log reports a dry run and a purge"
 
-    - name: Show Docker Registry Purger verification summary
+    - name: Show the Docker Registry Purger verification summary
       ansible.builtin.debug:
         msg:
-          - "Purge script: {{ docker_registry_purger_script_lines[0] }} ({{ docker_registry_purger_script_stat.stat.mode }})"
-          - "Timer: {{ docker_registry_purger_timer.status.ActiveState }}, on {{ docker_registry_purger_schedule }}"
-          - "Last service run: Result={{ docker_registry_purger_service.status.Result }}, status={{ docker_registry_purger_service.status.ExecMainStatus }}"
-          - "Seeded tags: {{ docker_registry_purger_molecule_seeded_tags }}"
+          - "Docker Registry Purger purge script: {{ docker_registry_purger_script_lines[0] }} ({{ docker_registry_purger_script_stat.stat.mode }})"
+          - "Docker Registry Purger timer: {{ docker_registry_purger_timer.status.ActiveState }}, on {{ docker_registry_purger_schedule }}"
+          - "Docker Registry Purger last service run: Result={{ docker_registry_purger_service.status.Result }}, status={{ docker_registry_purger_service.status.ExecMainStatus }}"
+          - "Docker Registry Purger seeded tags: {{ docker_registry_purger_molecule_seeded_tags }}"
           - "{{ docker_registry_purger_molecule_purged_repository }} now holds: {{ docker_registry_purger_purged_tags.json.tags | sort }}"
           - "{{ docker_registry_purger_molecule_ignored_repository }} now holds: {{ docker_registry_purger_ignored_tags.json.tags | sort }}"
