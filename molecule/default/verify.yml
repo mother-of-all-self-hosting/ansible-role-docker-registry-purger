@@ -132,7 +132,7 @@
           {{ docker_registry_purger_schedule }}, which runs the purge script
 
     - name: Read the Docker Registry Purger timer state
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: docker-registry-purger.timer
       register: docker_registry_purger_timer
 
@@ -204,7 +204,7 @@
           all {{ docker_registry_purger_molecule_seeded_tags | length }} of its tags
 
     - name: Read the Docker Registry Purger service state
-      ansible.builtin.systemd:
+      ansible.builtin.systemd_service:
         name: docker-registry-purger.service
       register: docker_registry_purger_service
 
