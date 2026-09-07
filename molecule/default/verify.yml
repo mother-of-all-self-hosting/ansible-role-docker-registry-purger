@@ -32,7 +32,7 @@
         src: "{{ docker_registry_purger_bin_path }}/purge"
       register: docker_registry_purger_script
 
-    - name: Make sense of the Docker Registry Purger purge script
+    - name: Parse the Docker Registry Purger purge script
       ansible.builtin.set_fact:
         docker_registry_purger_script_lines: "{{ (docker_registry_purger_script.content | b64decode).splitlines() }}"
 
@@ -67,7 +67,7 @@
         src: "{{ docker_registry_purger_base_path }}/env"
       register: docker_registry_purger_env_file
 
-    - name: Make sense of the Docker Registry Purger environment file
+    - name: Parse the Docker Registry Purger environment file
       ansible.builtin.set_fact:
         docker_registry_purger_env_lines: "{{ (docker_registry_purger_env_file.content | b64decode).splitlines() }}"
 
