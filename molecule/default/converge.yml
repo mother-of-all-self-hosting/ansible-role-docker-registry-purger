@@ -40,10 +40,7 @@
     # community.docker collection and would fail the playbook syntax check.
     - name: Ensure the Molecule registry container image is pulled
       ansible.builtin.command:
-        argv:
-          - docker
-          - pull
-          - "{{ docker_registry_purger_molecule_registry_image }}"
+        cmd: docker pull {{ docker_registry_purger_molecule_registry_image }}
       changed_when: true
 
     - name: Ensure the Molecule registry container is running

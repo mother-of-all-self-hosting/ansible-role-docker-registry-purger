@@ -221,11 +221,7 @@
 
     - name: Retrieve the Docker Registry Purger service log
       ansible.builtin.command:
-        argv:
-          - journalctl
-          - --no-pager
-          - --output=cat
-          - --unit=docker-registry-purger.service
+        cmd: journalctl --no-pager --output=cat --unit=docker-registry-purger.service
       register: docker_registry_purger_log
       changed_when: false
 
