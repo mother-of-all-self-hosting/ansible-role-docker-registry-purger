@@ -95,7 +95,7 @@ If you use the MASH playbook, the shortcut commands with the [`just` program](ht
 
 ## Usage
 
-After running the command for installation, Docker Registry Purger becomes available.
+After running the command for installation, Docker Registry Purger becomes available, and runs per the schedule to purge registry's old tags.
 
 ## Troubleshooting
 
