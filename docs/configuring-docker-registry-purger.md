@@ -18,11 +18,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Setting up Docker Registry Purger
 
-This is an [Ansible](https://www.ansible.com/) role which installs [Docker Registry Purger](https://github.com/klausmeyer/docker-registry-purger) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
+This is an [Ansible](https://www.ansible.com/) role which installs [Docker Registry Purger](https://github.com/devture/docker-registry-purger) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
 
-Docker Registry Purger is a web interface for the Docker Registry HTTP API V2, written in Ruby on Rails.
+Docker Registry Purger is a small tool used for purging a private Docker registry's old tags.
 
-See the project's [documentation](https://github.com/klausmeyer/docker-registry-purger/blob/master/README.md) to learn what Docker Registry Purger does and why it might be useful to you.
+See the project's [documentation](https://github.com/devture/docker-registry-purger/blob/main/README.md) to learn what Docker Registry Purger does and why it might be useful to you.
+
+## Prerequisites
+
+To run a Docker Registry Purger instance it is necessary to prepare a container registry.
+
+If you are looking for an Ansible role for Distribution Registry, you can check out [ansible-role-docker-registry](https://github.com/mother-of-all-self-hosting/ansible-role-docker-registry) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
 ## Adjusting the playbook configuration
 
@@ -46,43 +52,12 @@ docker_registry_purger_enabled: true
 ########################################################################
 ```
 
-### Set the hostname
-
-To enable Docker Registry Purger you need to set the hostname as well. To do so, add the following configuration to your `vars.yml` file. Make sure to replace `example.com` with your own value.
-
-```yaml
-docker_registry_purger_hostname: "example.com"
-```
-
-After adjusting the hostname, make sure to adjust your DNS records to point the domain to your server.
-
 ### Specify a full URL to the container registry
 
-It is also necessary to set a URL to a Distribution Registry instance by adding the following configuration to your `vars.yml` file. Make sure to replace `registry.example.com` with your own value.
+It is also necessary to set a URL to a container registry instance by adding the following configuration to your `vars.yml` file. Make sure to replace `registry.example.com` with your own value.
 
 ```yaml
-docker_registry_purger_docker_registry_url: https://registry.example.com
-```
-
-### Enabling image deletion (optional)
-
-Image deletion is disabled by default. If you need it, you have to explicitly enable it as below:
-
-```yaml
-docker_registry_purger_enabled_delete_images: true
-```
-
-### Configuring HTTP Basic authentication (optional)
-
-If Docker Registry Purger will be able to delete images and live on the same private container network as the registry itself, it is recommended to protect it with HTTP Basic authentication by adding the following configuration to your `vars.yml` file:
-
-```yaml
-docker_registry_purger_basic_auth_enabled: true
-
-docker_registry_purger_basic_auth_username: admin
-
-# You can put any string here, but generating a strong one is preferred (e.g. `pwgen -s 64 1`).
-docker_registry_purger_basic_auth_password: ""
+docker_registry_purger_registry_url: "https://registry.example.com"
 ```
 
 ### Extending the configuration
@@ -92,6 +67,8 @@ There are some additional things you may wish to configure about the service.
 Take a look at:
 
 - [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `docker_registry_purger_environment_variables_additional_variables` variable
+
+Refer to [the official documentation](https://github.com/devture/docker-registry-purger/blob/main/README.md#environment-variables) for a complete list of Docker Registry Purger's config options that you can put in `docker_registry_purger_environment_variables_additional_variables`.
 
 ## Installing
 
@@ -105,9 +82,7 @@ If you use the MASH playbook, the shortcut commands with the [`just` program](ht
 
 ## Usage
 
-After running the command for installation, Docker Registry Purger becomes available at the specified hostname like `https://example.com`.
-
-You should be able to browse the images and possibly delete them (if enabled via `docker_registry_purger_enabled_delete_images`).
+After running the command for installation, Docker Registry Purger becomes available.
 
 ## Troubleshooting
 
