@@ -60,6 +60,19 @@ It is also necessary to set a URL to a container registry instance by adding the
 docker_registry_purger_registry_url: "https://registry.example.com"
 ```
 
+### Configuring the schedule (optional)
+
+By default the service is configured to run `registry-purger.timer` at 06:30 AM on Sunday (UTC). To adjust the schedule, add the following configuration to your `vars.yml` file:
+
+```yaml
+docker_registry_purger_schedule: SCHEDULE_IN_SYSTEMD_TIMER_CALENDAR
+
+# Specify the timezone
+docker_registry_purger_environment_variables_tz: UTC
+```
+
+Refer to [this page](https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html) for details about the timestamps syntax.
+
 ### Extending the configuration
 
 There are some additional things you may wish to configure about the service.
