@@ -11,6 +11,7 @@
   when: "lookup('ansible.builtin.varnames', ('^' + item.old + '$'), wantlist=True) | length > 0"
   with_items:
     - { "old": "docker_registry_purger_container_image_force_pull", "new": "<removed> (the new community.docker.docker_image_pull module handles this natively)" }
+    - { "old": "docker_registry_purger_uid", "new": "<removed> (the files are now owned by root, with the `docker_registry_purger_gid` group)" }
 
 - name: Fail if required Docker Registry Purger settings not defined
   ansible.builtin.fail:
@@ -18,7 +19,6 @@
       You need to define a required configuration setting (`{{ item }}`).
   when: "lookup('vars', item, default='') | string | length == 0"
   with_items:
-    - docker_registry_purger_uid
     - docker_registry_purger_gid
     - docker_registry_purger_container_network
     - docker_registry_purger_registry_url

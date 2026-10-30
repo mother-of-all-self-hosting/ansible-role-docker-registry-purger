@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
+# Owned by root: a systemd timer runs the purge script in the bin path as root.
+# Whoever owns the base path could rename the bin path (even a root-owned one) and put another in its place.
 - name: Ensure Docker Registry Purger paths exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: "0750"
-    owner: "{{ docker_registry_purger_uid }}"
+    owner: root
     group: "{{ docker_registry_purger_gid }}"
   with_items:
     - "{{ docker_registry_purger_base_path }}"
@@ -19,7 +21,7 @@
     src: "{{ role_path }}/templates/{{ item }}.j2"
     dest: "{{ docker_registry_purger_base_path }}/{{ item }}"
     mode: "0640"
-    owner: "{{ docker_registry_purger_uid }}"
+    owner: root
     group: "{{ docker_registry_purger_gid }}"
   with_items:
     - env
@@ -29,7 +31,7 @@
   ansible.builtin.template:
     src: "{{ role_path }}/templates/bin/{{ item }}.j2"
     dest: "{{ docker_registry_purger_bin_path }}/{{ item }}"
-    owner: "{{ docker_registry_purger_uid }}"
+    owner: root
     group: "{{ docker_registry_purger_gid }}"
     mode: "0750"
   with_items:

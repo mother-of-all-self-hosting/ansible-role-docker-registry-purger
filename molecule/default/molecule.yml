@@ -77,7 +77,6 @@ provisioner:
           - v0005
 
         # Variables for Docker Registry Purger
-        docker_registry_purger_uid: 1000
         docker_registry_purger_gid: 1000
         docker_registry_purger_registry_url: "http://{{ docker_registry_purger_molecule_registry_identifier }}:5000"
 
